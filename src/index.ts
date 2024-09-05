@@ -24,66 +24,102 @@ export function convertTsConfig(
 ): swcType.Options {
 	// https://json.schemastore.org/tsconfig
 	const {
-		esModuleInterop = false,
-		sourceMap = 'inline', // notice here we default it to 'inline' instead of false
-		importHelpers = false,
-		experimentalDecorators = false,
-		emitDecoratorMetadata = false,
+		esModuleInterop,
+		sourceMap,
+		importHelpers,
+		experimentalDecorators,
+		emitDecoratorMetadata,
 		target = 'es3',
 		module,
 		jsx: _jsx,
-		jsxFactory = 'React.createElement',
-		jsxFragmentFactory = 'React.Fragment',
-		jsxImportSource = 'react',
-		alwaysStrict = false,
-		noImplicitUseStrict = false,
+		jsxFactory: _jsxFactory,
+		jsxFragmentFactory: _jsxFragmentFactory,
+		jsxImportSource: _jsxImportSource,
+		alwaysStrict,
+		noImplicitUseStrict,
 		paths,
 		baseUrl,
+		useDefineForClassFields: _useDefineForClassFields,
 	} = tsOptions
 
 	const jsx = (_jsx as unknown as string)?.toLowerCase()
+	const jsxFactory: swcType.ReactConfig['pragma'] =
+		_jsxFactory !== 'React.createElement' ? _jsxFactory : undefined
+	const jsxFragmentFactory: swcType.ReactConfig['pragmaFrag'] =
+		_jsxFragmentFactory !== 'React.Fragment' ? _jsxFragmentFactory : undefined
+	const jsxImportSource: swcType.ReactConfig['importSource'] =
+		_jsxImportSource !== 'react' ? _jsxImportSource : undefined
 	const jsxRuntime: swcType.ReactConfig['runtime'] =
 		jsx === 'react-jsx' || jsx === 'react-jsxdev' ? 'automatic' : undefined
 	const jsxDevelopment: swcType.ReactConfig['development'] =
 		jsx === 'react-jsxdev' ? true : undefined
+	const react =
+		jsxDevelopment ||
+		jsxFactory ||
+		jsxFragmentFactory ||
+		jsxImportSource ||
+		jsxRuntime
+	// https://swc.rs/docs/migrating-from-tsc#usedefineforclassfields
+	const defaultUseDefineForClassFields = ![
+		'es3',
+		'es5',
+		'es6',
+		'es2015',
+		'es2016',
+		'es2017',
+		'es2018',
+		'es2019',
+		'es2020',
+		'es2021',
+	].includes(target.toLowerCase())
+	const useDefineForClassFields =
+		_useDefineForClassFields !== defaultUseDefineForClassFields
+			? _useDefineForClassFields
+			: undefined
 
 	const transformedOptions = deepmerge(
 		{
-			sourceMaps: sourceMap,
-			module: {
-				type: moduleType(module, cwd),
-				strictMode: alwaysStrict || !noImplicitUseStrict,
-				noInterop: !esModuleInterop,
-			} satisfies swcType.ModuleConfig,
+			$schema: 'https://swc.rs/schema.json',
 			jsc: {
-				externalHelpers: importHelpers,
-				target: targetType(target as any),
+				externalHelpers: importHelpers || undefined,
+				target: targetType(target),
 				parser: {
 					syntax: 'typescript',
-					tsx: true,
-					decorators: experimentalDecorators,
+					tsx: jsx ? true : undefined,
+					decorators: experimentalDecorators || undefined,
 					dynamicImport: true,
 				},
 				transform: {
 					legacyDecorator: true,
-					decoratorMetadata: emitDecoratorMetadata,
-					react: {
-						throwIfNamespace: false,
-						development: jsxDevelopment,
-						useBuiltins: false,
-						pragma: jsxFactory,
-						pragmaFrag: jsxFragmentFactory,
-						importSource: jsxImportSource,
-						runtime: jsxRuntime,
-					},
+					decoratorMetadata: emitDecoratorMetadata || undefined,
+					react: react
+						? {
+								development: jsxDevelopment,
+								pragma: jsxFactory,
+								pragmaFrag: jsxFragmentFactory,
+								importSource: jsxImportSource,
+								runtime: jsxRuntime,
+						  }
+						: undefined,
+					useDefineForClassFields:
+						useDefineForClassFields !== undefined
+							? useDefineForClassFields
+							: undefined,
 				},
-				keepClassNames: !['es3', 'es5', 'es6', 'es2015'].includes(
-					(target as string).toLowerCase(),
-				),
+				keepClassNames:
+					!['es3', 'es5', 'es6', 'es2015'].includes(
+						(target as string).toLowerCase(),
+					) || undefined,
 				paths,
 				baseUrl,
 			},
-		} satisfies swcType.Options,
+			module: {
+				type: moduleType(module, cwd),
+				strictMode: alwaysStrict || !noImplicitUseStrict ? undefined : false,
+				noInterop: esModuleInterop ? undefined : true,
+			} satisfies swcType.ModuleConfig,
+			sourceMaps: sourceMap || undefined,
+		} satisfies swcType.Options & { $schema: string },
 		swcOptions,
 	)
 

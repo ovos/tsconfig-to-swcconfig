@@ -16,17 +16,16 @@ describe('convert', { concurrency: true }, () => {
 			resolve(__dirname, 'fixtures', 'tsconfig'),
 			{ minify: true },
 		)
-		strictEqual(result.sourceMaps, false)
+		strictEqual(result.sourceMaps, undefined)
 		strictEqual(result.module?.type, 'commonjs')
-		strictEqual(result.module?.noInterop, false)
-		strictEqual(result.module?.strictMode, true)
+		strictEqual(result.module?.noInterop, undefined)
+		strictEqual(result.module?.strictMode, undefined)
 		strictEqual(result.jsc?.externalHelpers, true)
 		strictEqual(result.jsc?.target, 'es3')
 		strictEqual(result.jsc?.parser?.decorators, true)
 		strictEqual(result.jsc?.transform?.decoratorMetadata, true)
-		strictEqual(result.jsc?.transform?.react?.pragma, 'React.createElement')
-		strictEqual(result.jsc?.transform?.react?.pragmaFrag, 'React.Fragment')
-		strictEqual(result.jsc?.keepClassNames, false)
+		strictEqual(result.jsc?.transform?.react, undefined)
+		strictEqual(result.jsc?.keepClassNames, undefined)
 		strictEqual(result.minify, true)
 
 		result = convert(
