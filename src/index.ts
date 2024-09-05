@@ -143,9 +143,7 @@ function moduleType(
 		'es2020',
 		'es2022',
 		'esnext',
-		'node16',
-		'nodenext',
-		'none',
+		'preserve',
 	] as const
 	if (es6Modules.includes(module as any)) {
 		return 'es6'
