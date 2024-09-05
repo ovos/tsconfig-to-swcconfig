@@ -34,6 +34,8 @@ const {
 			default: false,
 		},
 	},
+	// allow positionals (and ignore them - only to avoid throwing errors when used e.g. with lint-staged)
+	allowPositionals: true,
 })
 
 if (help) {
