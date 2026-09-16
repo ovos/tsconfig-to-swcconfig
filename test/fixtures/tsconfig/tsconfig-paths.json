@@ -2,7 +2,7 @@
 	"compilerOptions": {
 		"baseUrl": "src",
 		"paths": {
-			"lib-a": "../../other/a"
+			"lib-a": ["../../other/a"]
 		}
 	}
 }

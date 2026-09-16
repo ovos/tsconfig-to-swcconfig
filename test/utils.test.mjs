@@ -1,98 +1,56 @@
-import { deepStrictEqual } from 'node:assert'
-import { dirname, resolve } from 'node:path'
+import { deepStrictEqual, strictEqual } from 'node:assert'
+import { resolve } from 'node:path'
 import { describe, it } from 'node:test'
-import { URL } from 'node:url'
 import { getTSOptions } from '../dist/utils.js'
 
-const __dirname = dirname(new URL(import.meta.url).pathname)
+const fixtures = resolve(import.meta.dirname, 'fixtures', 'tsconfig')
 
 describe('getTSOptions', { concurrency: true }, () => {
-	it('should read tsconfig.json', () => {
-		let result = getTSOptions(
-			'tsconfig.json',
-			resolve(__dirname, 'fixtures', 'tsconfig'),
-		)
-		deepStrictEqual(result, {
-			strict: true,
-			target: 'esnext',
-		})
-
-		result = getTSOptions()
-		deepStrictEqual(result, {
-			lib: ['es2018'],
-			module: 'commonjs',
-			target: 'es2018',
-			strict: true,
-			esModuleInterop: true,
-			skipLibCheck: true,
-			forceConsistentCasingInFileNames: true,
-			declaration: true,
-			rootDir: './src',
-			outDir: './dist',
-		})
+	it('should read tsconfig.json and resolve implicit options', () => {
+		const result = getTSOptions('tsconfig.json', fixtures)
+		strictEqual(result.target, 'esnext')
+		strictEqual(result.strict, true)
+		strictEqual(result.alwaysStrict, true)
 	})
 
-	it('should return null if not read tsconfig.json', () => {
-		const result = getTSOptions('tsconfig.json', resolve('/')) // a place with no tsconfig
-		deepStrictEqual(result, null)
+	it('should return null if no config is found', () => {
+		strictEqual(getTSOptions('tsconfig.json', resolve('/')), null)
 	})
 
-	it('should read extended tsconfig', () => {
-		const result = getTSOptions(
-			'tsconfig-extends.json',
-			resolve(__dirname, 'fixtures', 'tsconfig'),
-		)
-		deepStrictEqual(result, { target: 'es2018', strict: true })
+	it('should apply child options after extends', () => {
+		const result = getTSOptions('tsconfig-extends.json', fixtures)
+		strictEqual(result.target, 'es2018')
+		strictEqual(result.strict, true)
 	})
 
-	it('should read extended tsconfig with no target set', () => {
-		const result = getTSOptions(
-			'tsconfig-extends-no-target.json',
-			resolve(__dirname, 'fixtures', 'tsconfig'),
-		)
-		deepStrictEqual(result, { target: 'esnext', strict: true })
+	it('should inherit an unspecified target', () => {
+		const result = getTSOptions('tsconfig-extends-no-target.json', fixtures)
+		strictEqual(result.target, 'esnext')
+		strictEqual(result.strict, true)
 	})
 
-	it('should read multiple extended tsconfig with no target set', () => {
+	it('should handle multiple levels of extends', () => {
 		const result = getTSOptions(
 			'tsconfig-extends-no-target-child.json',
-			resolve(__dirname, 'fixtures', 'tsconfig'),
+			fixtures,
 		)
-		deepStrictEqual(result, { target: 'esnext', strict: false })
+		strictEqual(result.target, 'esnext')
+		strictEqual(result.strict, false)
 	})
 
-	it('should read extended tsconfig in node_modules', () => {
-		const result = getTSOptions(
-			'tsconfig-extends-imported.json',
-			resolve(__dirname, 'fixtures', 'tsconfig'),
-		)
-		deepStrictEqual(result, {
-			lib: ['es2019', 'es2020.promise', 'es2020.bigint', 'es2020.string'],
-			module: 'node16',
-			target: 'es2018',
-			strict: true,
-			esModuleInterop: true,
-			skipLibCheck: true,
-			forceConsistentCasingInFileNames: true,
-			moduleResolution: 'node16',
-		})
+	it('should resolve an extended package', () => {
+		const result = getTSOptions('tsconfig-extends-imported.json', fixtures)
+		strictEqual(result.module, 'nodenext')
+		strictEqual(result.target, 'es2018')
+		strictEqual(result.esModuleInterop, true)
+		deepStrictEqual(result.types, ['node'])
 	})
 
-	it('should read extended array tsconfig', () => {
-		const result = getTSOptions(
-			'tsconfig-extends-array.json',
-			resolve(__dirname, 'fixtures', 'tsconfig'),
-		)
-		deepStrictEqual(result, {
-			lib: ['es2019', 'es2020.promise', 'es2020.bigint', 'es2020.string'],
-			module: 'node16',
-			target: 'es2018',
-			strict: true,
-			esModuleInterop: true,
-			skipLibCheck: true,
-			forceConsistentCasingInFileNames: true,
-			moduleResolution: 'node16',
-			allowJs: true, // from the second child
-		})
+	it('should merge an extends array in order', () => {
+		const result = getTSOptions('tsconfig-extends-array.json', fixtures)
+		strictEqual(result.module, 'nodenext')
+		strictEqual(result.target, 'es2018')
+		strictEqual(result.strict, true)
+		strictEqual(result.allowJs, true)
 	})
 })

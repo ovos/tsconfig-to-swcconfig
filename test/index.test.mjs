@@ -9,7 +9,7 @@ const __dirname = dirname(new URL(import.meta.url).pathname)
 describe('convert', { concurrency: true }, () => {
 	it('should convert tsconfig.json', () => {
 		let result = convert()
-		strictEqual(result.jsc?.target, 'es2018')
+		strictEqual(result.jsc?.target, 'es2022')
 
 		result = convert(
 			'tsconfig-not-default.json',
@@ -41,7 +41,7 @@ describe('convert', { concurrency: true }, () => {
 		strictEqual(result.jsc?.strict, undefined)
 	})
 
-	it('should ignore strict from tsconfig', () => {
+	it('should preserve ES modules', () => {
 		const result = convert(
 			'tsconfig-es2022.json',
 			resolve(__dirname, 'fixtures', 'tsconfig'),
@@ -57,11 +57,11 @@ describe('convert', { concurrency: true }, () => {
 		strictEqual(result.jsc?.target, 'es2015')
 	})
 
-	it('should output module:es6 if the nearest package.json is of type:module', () => {
+	it('should use Node ESM if the nearest package.json is of type:module', () => {
 		const result = convert(
 			'tsconfig.json',
 			resolve(__dirname, 'fixtures', 'tsconfig-with-package-json'),
 		)
-		strictEqual(result.module?.type, 'es6')
+		strictEqual(result.module?.type, 'nodenext')
 	})
 })

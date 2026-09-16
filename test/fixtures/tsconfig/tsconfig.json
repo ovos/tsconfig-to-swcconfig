@@ -1,7 +1,7 @@
 {
-  // test should read this file correctly
-  "compilerOptions": {
-    "target": "esnext",
-    "strict": true
-  }
+	// test should read this file correctly
+	"compilerOptions": {
+		"target": "esnext",
+		"strict": true
+	}
 }

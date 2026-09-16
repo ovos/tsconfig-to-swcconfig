@@ -17,6 +17,8 @@ Convert tsconfig to swc config.
 npm i tsconfig-to-swcconfig
 ```
 
+Version 3 requires Node.js 22 or newer and generates configurations for `@swc/core` 1.16.2 or newer. Install SWC in the project that compiles your code; it is an optional peer dependency so the converter's CLI can also be used on its own.
+
 ## Usage
 
 ## Convert config in a tsconfig file
@@ -64,6 +66,20 @@ const swcConfig = convertTsConfig(
 )
 ```
 
+For Node module modes, pass the source filename through the SWC options when a project contains `.mts`, `.cts`, or nested `package.json` files:
+
+```typescript
+const swcConfig = convert('tsconfig.json', process.cwd(), {
+  filename: '/path/to/project/src/entry.mts',
+})
+```
+
+The converter uses that file's extension and nearest `package.json` to select its module format. Without a source filename, it uses the config directory for `convert()` or `cwd` for `convertTsConfig()`. A single generated `.swcrc` cannot choose different module formats for every file in a mixed project; convert each file with its filename or provide separate SWC configurations.
+
+Both APIs resolve `jsc.baseUrl` to an absolute path so the result can be passed directly to SWC. `convert()` resolves paths relative to their tsconfig, including inherited `paths` without `baseUrl`. For an options object, use the third `convertTsConfig(options, overrides, cwd)` argument to specify the base directory. Explicit SWC overrides are still merged last.
+
+For Jest and React Native projects, see the [Jest guide](docs/jest.md) for module mocks and a configuration that keeps React Native's Babel transforms.
+
 ## CLI
 
 To use the CLI, install globally:
@@ -93,8 +109,27 @@ Options:
 Instead of installing globally, you can also use `npx` to run the CLI without installing:
 
 ```bash
-npx tsconfig-to-swcconfig -f tsconfig.json -c /path/to/project -o swc.config.js
+npx tsconfig-to-swcconfig -f tsconfig.json -c /path/to/project -o /path/to/project/.swcrc
 ```
+
+The CLI writes JSON. Generated `baseUrl` values are relative to the output file, or to `--cwd` when printing to stdout, so the configuration can move with your project. An explicit `--set jsc.baseUrl=...` is preserved.
+
+## Migrating from 2.x
+
+- Upgrade your consuming project's SWC to 1.16.2 or newer and run Node.js 22 or newer.
+- API results now contain absolute `baseUrl` values. Use the CLI to generate portable `.swcrc` files.
+- `jsx: "preserve"` and `"react-native"` now leave JSX intact. If your next build step expects JavaScript, select a React runtime in tsconfig or override `jsc.transform.react.runtime`.
+- Class field and import-preservation options are now honored, so emitted code can change to match the requested behavior.
+- Standard decorators are enabled when `experimentalDecorators` is off. Keep `experimentalDecorators: true` for legacy decorators and `emitDecoratorMetadata`.
+- `module: "preserve"` no longer emits CommonJS; Node modes retain dynamic `import()` and honor a supplied source filename.
+
+## Development and releases
+
+Run `npm ci`, `npm run lint`, and `npm test`. CI runs on Node.js 22, 24, and 26 and checks the package with `npm pack --dry-run`. Packing automatically builds `dist`.
+
+Use `npm version patch` (or `minor` / `major`) to update the version, lockfile, and Git tag together. Pushing a `v*` tag triggers lint, tests, a version check, npm publishing through OIDC, and GitHub release notes.
+
+Before publishing, configure an [npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for `songkeys/tsconfig-to-swcconfig`, workflow `release.yml`, with permission to run `npm publish`. No environment name or npm token is required.
 
 ## License
 

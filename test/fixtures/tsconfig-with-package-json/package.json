@@ -1,5 +1,5 @@
 {
-  "name": "tsconfig-with-package-json",
-  "type": "module",
-  "private": true
+	"name": "tsconfig-with-package-json",
+	"type": "module",
+	"private": true
 }

@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { type TsConfigJson, getTsconfig } from 'get-tsconfig'
+import { getTsconfig, type TsConfigJson } from 'get-tsconfig'
 
 export function getTSOptions(
 	filename = 'tsconfig.json',

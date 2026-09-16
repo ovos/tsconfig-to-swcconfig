@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { writeFile } from 'node:fs'
+import path from 'node:path'
 import { parseArgs } from 'node:util'
-import type swcType from '@swc/core'
+import type * as swcType from '@swc/types'
 import { convert } from './index'
 
 const {
@@ -76,6 +77,12 @@ const overrides = overrideValues?.reduce((all, a) => {
 }, {} as any) as swcType.Options
 
 const swcConfig = convert(filename, cwd, overrides)
+
+// Keep generated .swcrc files portable; the programmatic API needs absolute paths.
+if (swcConfig.jsc?.baseUrl && !overrides?.jsc?.baseUrl) {
+	const outputDir = output ? path.dirname(path.resolve(output)) : cwd
+	swcConfig.jsc.baseUrl = path.relative(outputDir, swcConfig.jsc.baseUrl) || '.'
+}
 
 if (output) {
 	writeFile(output, JSON.stringify(swcConfig, null, 2), (err) => {

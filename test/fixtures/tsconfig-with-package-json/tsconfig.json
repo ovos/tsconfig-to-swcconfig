@@ -1,7 +1,7 @@
 {
-  "compilerOptions": {
-    "module": "node16",
-    "target": "esnext",
-    "strict": true
-  }
+	"compilerOptions": {
+		"module": "node16",
+		"target": "esnext",
+		"strict": true
+	}
 }

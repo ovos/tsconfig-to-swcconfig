@@ -19,7 +19,7 @@ describe('cli', { concurrency: true }, () => {
 	it('should convert tsconfig.json', async () => {
 		const { stdout, stderr } = await pExe('node', ['dist/cli.js'])
 		strictEqual(stderr, '')
-		match(stdout, /"target": "es2018"/)
+		match(stdout, /"target": "es2022"/)
 	})
 
 	it('should convert --filename', async () => {
@@ -90,7 +90,7 @@ describe('cli', { concurrency: true }, () => {
 		])
 		strictEqual(stderr, '')
 		doesNotMatch(stdout, /"paths": /)
-		match(stdout, /"baseUrl": ".\/src"/)
+		strictEqual(JSON.parse(stdout).jsc.baseUrl, 'test/fixtures/tsconfig/src')
 	})
 
 	it('should convert tsconfig.json with "undefined" string addition', async () => {

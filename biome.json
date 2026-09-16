@@ -1,7 +1,7 @@
 {
 	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
 	"files": {
-		"ignore": ["./dist"]
+		"includes": ["**", "!dist"]
 	},
 	"formatter": {
 		"enabled": true
@@ -9,7 +9,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
+			"preset": "recommended",
 			"suspicious": {
 				"noExplicitAny": "off"
 			}
@@ -18,7 +18,7 @@
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "single",
-			"trailingComma": "all",
+			"trailingCommas": "all",
 			"semicolons": "asNeeded"
 		}
 	},
@@ -27,7 +27,5 @@
 			"allowComments": true
 		}
 	},
-	"organizeImports": {
-		"enabled": true
-	}
+	"assist": { "actions": { "source": { "organizeImports": "on" } } }
 }
