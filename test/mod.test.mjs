@@ -1,8 +1,18 @@
 // Tests for the behaviour of the @ovos-media fork, kept apart from the upstream tests to ease rebases.
-import { deepStrictEqual, strictEqual } from 'node:assert'
+import { deepStrictEqual, ok, strictEqual } from 'node:assert'
+import { execFileSync } from 'node:child_process'
+import {
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { describe, it } from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { transformSync } from '@swc/core'
+import { transformFileSync, transformSync } from '@swc/core'
 import { convertTsConfig } from '../dist/index.js'
 
 const $schema = 'https://swc.rs/schema.json'
@@ -196,5 +206,152 @@ describe('cleaner convert', { concurrency: true }, () => {
 		)
 		strictEqual(config.jsc.externalHelpers, false)
 		strictEqual(config.jsc.keepClassNames, false)
+	})
+})
+
+describe('portable .swcrc', { concurrency: true }, () => {
+	const cli = resolve('dist/cli.js')
+	// writes the given files (objects as JSON) into a new temporary directory
+	const project = (t, files) => {
+		const root = mkdtempSync(join(tmpdir(), 't2s-mod-'))
+		t.after(() => rmSync(root, { recursive: true, force: true }))
+		for (const [file, content] of Object.entries(files)) {
+			mkdirSync(dirname(join(root, file)), { recursive: true })
+			writeFileSync(
+				join(root, file),
+				typeof content === 'string' ? content : JSON.stringify(content),
+			)
+		}
+		return root
+	}
+	// runs the CLI like the lint-staged hook: `-o` plus the staged tsconfig appended as a positional
+	const generate = (cwd, args, output = '.swcrc') => {
+		execFileSync(
+			process.execPath,
+			[cli, ...args, '-o', output, join(cwd, 'tsconfig.json')],
+			{ cwd },
+		)
+		const text = readFileSync(resolve(cwd, output), 'utf8')
+		return { text, swcrc: JSON.parse(text) }
+	}
+	const assertPortable = (root, text) => {
+		ok(!text.includes(root), text)
+		const strings = []
+		JSON.parse(text, (_key, value) => {
+			if (typeof value === 'string') strings.push(value)
+			return value
+		})
+		for (const value of strings) ok(!isAbsolute(value), value)
+	}
+
+	it('writes baseUrl relative to the tsconfig, in the form tsconfig normalizes it to', (t) => {
+		const root = project(t, {
+			'app/tsconfig.json': {
+				compilerOptions: {
+					baseUrl: 'src/',
+					paths: { '~common/*': ['../../common/src/*'] },
+				},
+			},
+		})
+		const { text, swcrc } = generate(join(root, 'app'), [])
+		assertPortable(root, text)
+		strictEqual(swcrc.jsc.baseUrl, './src')
+		deepStrictEqual(swcrc.jsc.paths, { '~common/*': ['../../common/src/*'] })
+	})
+
+	it('writes baseUrl "./" when tsconfig has paths only, and keeps the paths as written', (t) => {
+		const paths = {
+			'~lib': ['../lib/src/'],
+			'~lib/*': ['../lib/src/*'],
+			'*': ['./src/*'],
+		}
+		const root = project(t, {
+			'app/tsconfig.json': { compilerOptions: { paths } },
+		})
+		const { text, swcrc } = generate(join(root, 'app'), [])
+		assertPortable(root, text)
+		strictEqual(swcrc.jsc.baseUrl, './')
+		deepStrictEqual(swcrc.jsc.paths, paths)
+	})
+
+	it('writes no baseUrl when tsconfig has neither baseUrl nor paths', (t) => {
+		const root = project(t, {
+			'app/tsconfig.json': { compilerOptions: { target: 'es2022' } },
+		})
+		const { swcrc } = generate(join(root, 'app'), [])
+		strictEqual('baseUrl' in swcrc.jsc, false)
+		strictEqual('paths' in swcrc.jsc, false)
+	})
+
+	it('rebases inherited paths and paths expanded from the configDir variable onto relative ones', (t) => {
+		const root = project(t, {
+			'base/tsconfig.json': {
+				compilerOptions: {
+					paths: { '@/*': ['./src/*'], '@lib': ['./lib/'] },
+				},
+			},
+			'app/tsconfig.json': { extends: '../base/tsconfig.json' },
+			'shared/tsconfig.json': {
+				// biome-ignore lint/suspicious/noTemplateCurlyInString: the tsconfig variable, not a template
+				compilerOptions: { paths: { '#/*': ['${configDir}/src/*'] } },
+			},
+			'app-configdir/tsconfig.json': {
+				extends: '../shared/tsconfig.json',
+			},
+			'app-baseurl/tsconfig.json': {
+				extends: '../shared/tsconfig.json',
+				compilerOptions: { baseUrl: './src' },
+			},
+		})
+		const inherited = generate(join(root, 'app'), [])
+		assertPortable(root, inherited.text)
+		strictEqual(inherited.swcrc.jsc.baseUrl, './')
+		deepStrictEqual(inherited.swcrc.jsc.paths, {
+			'@/*': ['../base/src/*'],
+			'@lib': ['../base/lib/'],
+		})
+		const configDir = generate(join(root, 'app-configdir'), [])
+		assertPortable(root, configDir.text)
+		strictEqual(configDir.swcrc.jsc.baseUrl, './')
+		deepStrictEqual(configDir.swcrc.jsc.paths, { '#/*': ['./src/*'] })
+		const baseUrl = generate(join(root, 'app-baseurl'), [])
+		assertPortable(root, baseUrl.text)
+		strictEqual(baseUrl.swcrc.jsc.baseUrl, './src')
+		deepStrictEqual(baseUrl.swcrc.jsc.paths, { '#/*': ['./*'] })
+	})
+
+	it('writes baseUrl relative to the output file, where swc resolves it from', (t) => {
+		const root = project(t, {
+			'app/tsconfig.json': {
+				compilerOptions: { module: 'commonjs', paths: { '@/*': ['./src/*'] } },
+			},
+			'app/src/value.ts': 'export default 1;',
+			'app/src/input.ts': 'import value from "@/value"; console.log(value);',
+			'out/.gitkeep': '',
+		})
+		const { text, swcrc } = generate(join(root, 'app'), [], '../out/.swcrc')
+		assertPortable(root, text)
+		strictEqual(swcrc.jsc.baseUrl, '../app')
+		const { code } = transformFileSync(join(root, 'app/src/input.ts'), {
+			configFile: join(root, 'out/.swcrc'),
+			sourceMaps: false,
+		})
+		ok(code.includes('require("./value")'), code)
+	})
+
+	it('writes a baseUrl given with --set as it is', (t) => {
+		const root = project(t, {
+			'app/tsconfig.json': {
+				compilerOptions: { baseUrl: './src', paths: { '@/*': ['./*'] } },
+			},
+		})
+		for (const baseUrl of ['./', 'src', '/abs/src']) {
+			const { swcrc } = generate(join(root, 'app'), [
+				'-s',
+				`jsc.baseUrl=${baseUrl}`,
+			])
+			strictEqual(swcrc.jsc.baseUrl, baseUrl)
+			deepStrictEqual(swcrc.jsc.paths, { '@/*': ['./*'] })
+		}
 	})
 })

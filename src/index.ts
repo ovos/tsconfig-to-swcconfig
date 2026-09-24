@@ -6,7 +6,7 @@ import {
 	getTsconfig,
 	type TsConfigJson,
 } from 'get-tsconfig'
-import { getPackageJson } from './utils'
+import { getPackageJson, relativePath } from './utils'
 
 const deepmerge = Deepmerge()
 
@@ -34,16 +34,54 @@ export function convert(
 	const matchPaths = result && createPathsMatcher(result)
 
 	// Without baseUrl, inherited paths are relative to the config defining them.
+	// They are rebased onto this config.
+	// Paths defined in this config itself are kept as written.
 	if (tsOptions.paths && !tsOptions.baseUrl && matchPaths) {
 		tsOptions.paths = Object.fromEntries(
-			Object.keys(tsOptions.paths).map((alias) => [
+			Object.entries(tsOptions.paths).map(([alias, targets]) => [
 				alias,
-				matchPaths(alias).map((value) => path.relative(configDir, value)),
+				matchPaths(alias).map((value, index) =>
+					relativeTarget(configDir, value, targets[index]),
+				),
+			]),
+		)
+	}
+	// With baseUrl, paths are relative to it, except absolute ones, e.g. expanded from `${configDir}`.
+	if (tsOptions.paths && tsOptions.baseUrl) {
+		const baseDir = path.resolve(configDir, tsOptions.baseUrl)
+		tsOptions.paths = Object.fromEntries(
+			Object.entries(tsOptions.paths).map(([alias, targets]) => [
+				alias,
+				targets.map((target) =>
+					path.isAbsolute(target)
+						? relativeTarget(baseDir, target, target)
+						: target,
+				),
 			]),
 		)
 	}
 
 	return convertTsConfig(tsOptions, swcOptions, configDir)
+}
+
+/** Keeps a paths target as written when it resolves from `dir`, otherwise makes it relative to `dir`. */
+function relativeTarget(
+	dir: string,
+	resolved: string,
+	written: string | undefined,
+): string {
+	if (
+		written !== undefined &&
+		!path.isAbsolute(written) &&
+		path.resolve(dir, written) === path.resolve(resolved)
+	) {
+		return written
+	}
+	const relative = relativePath(dir, resolved)
+	// e.g. "../lib/src/", resolving drops the trailing slash
+	return written?.endsWith('/') && !relative.endsWith('/')
+		? `${relative}/`
+		: relative
 }
 
 export function convertTsConfig(

@@ -26,6 +26,21 @@ export function getPackageJson(cwd: string = process.cwd()) {
 	return packageJson
 }
 
+/**
+ * Makes paths in generated configs independent of the machine they were generated on.
+ * The result has the form tsconfig paths are written in: forward slashes, "./src" or "../lib", and "./" for `from` itself.
+ */
+export function relativePath(from: string, to: string): string {
+	const relative = path.relative(from, to).split(path.sep).join('/')
+	// a path on another Windows drive has no relative form
+	if (path.isAbsolute(relative)) {
+		return relative
+	}
+	return relative === '..' || relative.startsWith('../')
+		? relative
+		: `./${relative}`
+}
+
 // the following code is copied from https://github.com/sindresorhus/find-up-simple/blob/ec263e63e3198ce3cdadd49decb9940ac9997bf3/index.js#L32C1-L53C2
 
 const toPath = (urlOrPath?: string | URL) =>

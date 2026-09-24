@@ -56,7 +56,7 @@ it('resolves inherited paths for the API and keeps generated .swcrc files portab
 			join(project, '.swcrc'),
 		])
 		const swcrc = JSON.parse(readFileSync(join(project, '.swcrc'), 'utf8'))
-		strictEqual(swcrc.jsc.baseUrl, baseUrl ? 'base/src' : 'app')
+		strictEqual(swcrc.jsc.baseUrl, baseUrl ? './base/src' : './app')
 		cpSync(project, moved, { recursive: true })
 		const relocated = transformFileSync(join(moved, 'app/src/input.ts'), {
 			configFile: join(moved, '.swcrc'),

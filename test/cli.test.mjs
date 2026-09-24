@@ -103,7 +103,7 @@ describe('cli', { concurrency: true }, () => {
 		])
 		strictEqual(stderr, '')
 		doesNotMatch(stdout, /"paths": /)
-		strictEqual(JSON.parse(stdout).jsc.baseUrl, 'test/fixtures/tsconfig/src')
+		strictEqual(JSON.parse(stdout).jsc.baseUrl, './test/fixtures/tsconfig/src')
 	})
 
 	it('should convert tsconfig.json with "undefined" string addition', async () => {

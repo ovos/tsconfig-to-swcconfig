@@ -5,6 +5,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import type * as swcType from '@swc/types'
 import { convert } from './index'
+import { relativePath } from './utils'
 
 const {
 	values: { filename, cwd, output, help, set: overrideValues },
@@ -81,9 +82,11 @@ const overrides = overrideValues?.reduce((all, a) => {
 const swcConfig = convert(filename, cwd, overrides)
 
 // Keep generated .swcrc files portable; the programmatic API needs absolute paths.
+// swc resolves a relative baseUrl from the .swcrc file, so it is written relative to the output file,
+// in the form tsconfig uses ("./src", or "./" when tsconfig has only paths).
 if (swcConfig.jsc?.baseUrl && !overrides?.jsc?.baseUrl) {
 	const outputDir = output ? path.dirname(path.resolve(output)) : cwd
-	swcConfig.jsc.baseUrl = path.relative(outputDir, swcConfig.jsc.baseUrl) || '.'
+	swcConfig.jsc.baseUrl = relativePath(outputDir, swcConfig.jsc.baseUrl)
 }
 
 if (output) {
