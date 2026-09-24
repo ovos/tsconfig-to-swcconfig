@@ -13,7 +13,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { describe, it } from 'node:test'
 import { runInNewContext } from 'node:vm'
 import { transformFileSync, transformSync } from '@swc/core'
-import { convertTsConfig } from '../dist/index.js'
+import { convert, convertTsConfig } from '../dist/index.js'
 
 const $schema = 'https://swc.rs/schema.json'
 // the JSON written to a .swcrc: undefined values disappear, key order is kept
@@ -354,4 +354,36 @@ describe('portable .swcrc', { concurrency: true }, () => {
 			deepStrictEqual(swcrc.jsc.paths, { '@/*': ['./*'] })
 		}
 	})
+})
+
+// 2.8.0-mod.0 carried "fix: node16/nodenext must not be transpiled to es6", upstream covers it since 2.8.1
+it('compiles node16 and nodenext to CommonJS unless package.json has type module', (t) => {
+	const root = mkdtempSync(join(tmpdir(), 't2s-mod-'))
+	t.after(() => rmSync(root, { recursive: true, force: true }))
+	for (const [packageJson, expected, pattern] of [
+		[{}, 'commonjs', /defineProperty\(exports, "value"/],
+		[{ type: 'commonjs' }, 'commonjs', /defineProperty\(exports, "value"/],
+		[{ type: 'module' }, 'nodenext', /export const value = /],
+	]) {
+		for (const module of ['node16', 'nodenext']) {
+			const dir = mkdtempSync(join(root, 'package-'))
+			writeFileSync(join(dir, 'package.json'), JSON.stringify(packageJson))
+			writeFileSync(
+				join(dir, 'tsconfig.json'),
+				JSON.stringify({ compilerOptions: { module, target: 'es2022' } }),
+			)
+			const config = convert('tsconfig.json', dir)
+			strictEqual(
+				config.module?.type,
+				expected,
+				`${module} in ${packageJson.type}`,
+			)
+			const { code } = transformSync('export const value = 1;', {
+				...config,
+				...swcOptions,
+				filename: join(dir, 'input.ts'),
+			})
+			ok(pattern.test(code), code)
+		}
+	}
 })
