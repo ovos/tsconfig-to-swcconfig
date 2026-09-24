@@ -11,6 +11,16 @@ Convert tsconfig to swc config.
 >
 > `swc` has no plans to support `tsconfig.json`, but it could be useful in some cases. For example, migrating from `tsc` to `swc` in a large project, you can use this tool to convert `tsconfig.json` to `.swcrc`, and then modify the `.swcrc` to make it work.
 
+## `@ovos-media/tsconfig-to-swcconfig`
+
+This is a fork of [tsconfig-to-swcconfig](https://github.com/Songkeys/tsconfig-to-swcconfig), published as `@ovos-media/tsconfig-to-swcconfig`. Version `3.0.0-mod.0` is upstream `v3.0.0` with these changes:
+
+- The CLI accepts positional arguments and ignores them, so lint-staged can append the staged file paths.
+- The output leaves out values equal to swc's defaults, keeps `$schema` and a stable key order, writes the react block and `tsx` only with `jsx`, and writes `useDefineForClassFields` only when it is `false`. Source maps are not generated unless the tsconfig asks for them.
+- Generated `.swcrc` files are portable: `jsc.baseUrl` and `jsc.paths` are relative (`./src`, `./`), never absolute. Without a `baseUrl`, `paths` come with `"baseUrl": "./"`, which swc needs to apply them.
+- `module.ignoreDynamic` is never written, so a dynamic `import()` in CommonJS output keeps compiling to `require()` and the path aliases in it are rewritten. Upstream keeps it a native `import()` in Node modes, which fails at runtime for aliased specifiers.
+- `jsc.experimental.keepImportAttributes` is written only for output other than CommonJS, where it changes nothing.
+
 ## Install
 
 ```bash
@@ -121,7 +131,7 @@ The CLI writes JSON. Generated `baseUrl` values are relative to the output file,
 - `jsx: "preserve"` and `"react-native"` now leave JSX intact. If your next build step expects JavaScript, select a React runtime in tsconfig or override `jsc.transform.react.runtime`.
 - Class field and import-preservation options are now honored, so emitted code can change to match the requested behavior.
 - Standard decorators are enabled when `experimentalDecorators` is off. Keep `experimentalDecorators: true` for legacy decorators and `emitDecoratorMetadata`.
-- `module: "preserve"` no longer emits CommonJS; Node modes retain dynamic `import()` and honor a supplied source filename.
+- `module: "preserve"` no longer emits CommonJS, and Node modes honor a supplied source filename. Upstream Node modes also retain dynamic `import()`, this fork does not (see above).
 
 ## Development and releases
 
