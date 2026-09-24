@@ -161,17 +161,23 @@ export function convertTsConfig(
 		// swc would then also skip the `jsc.paths` and `baseUrl` rewriting in them, which breaks aliased imports at runtime.
 		// Without it, swc turns `import()` into a `require()` of the rewritten path.
 	}
+	// The module type of the output after the overrides.
+	// `--set module=undefined` leaves the swc default, ES modules.
+	const outputType =
+		'module' in swcOptions && !swcOptions.module
+			? undefined
+			: (swcOptions.module?.type ?? type)
 
 	const jsc = {
 		externalHelpers: importHelpers || undefined,
 		target: targetType(target),
-		experimental: {
-			// SWC rejects supplying both this option and its keepImportAssertions alias.
-			keepImportAttributes:
-				swcOptions.jsc?.experimental?.keepImportAssertions === undefined
-					? true
-					: undefined,
-		},
+		// Import attributes change nothing in CommonJS output, where imports become `require()` calls.
+		// SWC rejects supplying both this option and its keepImportAssertions alias.
+		experimental:
+			outputType !== 'commonjs' &&
+			swcOptions.jsc?.experimental?.keepImportAssertions === undefined
+				? { keepImportAttributes: true }
+				: undefined,
 		parser: {
 			syntax: 'typescript',
 			// swc picks TSX for .tsx files and plain TypeScript for .ts files by itself, but applies this flag to

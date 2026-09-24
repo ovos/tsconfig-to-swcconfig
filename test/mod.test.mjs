@@ -40,7 +40,6 @@ describe('cleaner convert', { concurrency: true }, () => {
 				$schema,
 				jsc: {
 					target: 'es2022',
-					experimental: { keepImportAttributes: true },
 					parser: {
 						syntax: 'typescript',
 						decorators: true,
@@ -74,7 +73,6 @@ describe('cleaner convert', { concurrency: true }, () => {
 				jsc: {
 					externalHelpers: true,
 					target: 'es5',
-					experimental: { keepImportAttributes: true },
 					parser: {
 						syntax: 'typescript',
 						decorators: true,
@@ -92,6 +90,46 @@ describe('cleaner convert', { concurrency: true }, () => {
 				sourceMaps: 'inline',
 			}),
 		)
+	})
+
+	it('writes keepImportAttributes only for output other than CommonJS', () => {
+		const experimental = (tsOptions, overrides) =>
+			JSON.parse(
+				json(convertTsConfig(tsOptions, overrides).jsc.experimental ?? null),
+			)
+		const kept = { keepImportAttributes: true }
+		for (const [tsOptions, overrides, expected] of [
+			[{ module: 'commonjs' }, undefined, null],
+			[{ module: 'node16' }, undefined, null],
+			[{ module: 'esnext' }, undefined, kept],
+			[{ module: 'preserve' }, undefined, kept],
+			[{ module: 'nodenext' }, { filename: 'input.mts' }, kept],
+			[{ module: 'commonjs' }, { module: { type: 'es6' } }, kept],
+			[{ module: 'commonjs' }, { module: undefined }, kept],
+			[{ module: 'esnext' }, { module: { type: 'commonjs' } }, null],
+		]) {
+			deepStrictEqual(
+				experimental(tsOptions, overrides),
+				expected,
+				JSON.stringify([tsOptions, overrides]),
+			)
+		}
+	})
+
+	it('relies on import attributes changing nothing in CommonJS output', () => {
+		const source =
+			'import data from "./data.json" with { type: "json" }; export * from "./other.json" with { type: "json" }; export const load = async () => [data, await import("./more.json", { with: { type: "json" } })];'
+		const compile = (experimental) =>
+			transformSync(source, {
+				...swcOptions,
+				module: { type: 'commonjs' },
+				jsc: {
+					target: 'es2022',
+					parser: { syntax: 'typescript' },
+					experimental,
+				},
+			}).code
+		strictEqual(compile({ keepImportAttributes: true }), compile(undefined))
 	})
 
 	it('writes source maps only when tsconfig asks for them', () => {
