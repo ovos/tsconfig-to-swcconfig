@@ -32,6 +32,19 @@ describe('cli', { concurrency: true }, () => {
 		match(stdout, /"target": "es2015"/)
 	})
 
+	it('should ignore positionals appended by lint-staged', async () => {
+		const { stdout, stderr } = await pExe('node', [
+			'dist/cli.js',
+			'--filename',
+			resolve(__dirname, 'fixtures', 'tsconfig', 'tsconfig-es6.json'),
+			// lint-staged appends the staged files; they must not select another tsconfig
+			resolve(__dirname, 'fixtures', 'tsconfig', 'tsconfig.json'),
+			resolve(__dirname, 'fixtures', 'tsconfig', 'tsconfig-es2022.json'),
+		])
+		strictEqual(stderr, '')
+		match(stdout, /"target": "es2015"/)
+	})
+
 	it('should convert tsconfig.json with additions', async () => {
 		const { stdout, stderr } = await pExe('node', [
 			'dist/cli.js',
