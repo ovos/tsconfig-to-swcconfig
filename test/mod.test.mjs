@@ -86,6 +86,22 @@ describe('cleaner convert', { concurrency: true }, () => {
 		)
 	})
 
+	it('writes source maps only when tsconfig asks for them', () => {
+		for (const [tsOptions, expected] of [
+			[{}, undefined],
+			[{ sourceMap: false }, undefined],
+			[{ sourceMap: true }, true],
+			[{ inlineSourceMap: true }, 'inline'],
+			[{ sourceMap: false, inlineSourceMap: true }, 'inline'],
+		]) {
+			strictEqual(
+				convertTsConfig(tsOptions).sourceMaps,
+				expected,
+				JSON.stringify(tsOptions),
+			)
+		}
+	})
+
 	it('keeps dynamic imports of node module modes', () => {
 		const config = convertTsConfig({ module: 'node16', target: 'es2022' })
 		deepStrictEqual(JSON.parse(json(config.module)), {

@@ -55,7 +55,8 @@ export function convertTsConfig(
 	const {
 		module,
 		esModuleInterop = nodeModules.includes(module?.toLowerCase() ?? ''),
-		sourceMap = 'inline', // notice here we default it to 'inline' instead of false
+		// no source maps unless tsconfig asks for them, like tsc
+		sourceMap,
 		inlineSourceMap = false,
 		importHelpers = false,
 		experimentalDecorators = false,
