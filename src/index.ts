@@ -135,7 +135,9 @@ export function convertTsConfig(
 		},
 		parser: {
 			syntax: 'typescript',
-			tsx: true,
+			// swc picks TSX for .tsx files and plain TypeScript for .ts files by itself, but applies this flag to
+			// .mts, .cts and extensionless input, where TSX would break `<T>value` assertions and `<T>() =>` generics
+			tsx: jsx ? true : undefined,
 			decorators: true,
 			dynamicImport: true,
 		},

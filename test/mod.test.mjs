@@ -33,7 +33,6 @@ describe('cleaner convert', { concurrency: true }, () => {
 					experimental: { keepImportAttributes: true },
 					parser: {
 						syntax: 'typescript',
-						tsx: true,
 						decorators: true,
 						dynamicImport: true,
 					},
@@ -68,7 +67,6 @@ describe('cleaner convert', { concurrency: true }, () => {
 					experimental: { keepImportAttributes: true },
 					parser: {
 						syntax: 'typescript',
-						tsx: true,
 						decorators: true,
 						dynamicImport: true,
 					},
@@ -168,6 +166,27 @@ describe('cleaner convert', { concurrency: true }, () => {
 			throwIfNamespace: false,
 			runtime: 'preserve',
 		})
+	})
+
+	it('parses TSX only when jsx is set', () => {
+		strictEqual(convertTsConfig({ jsx: 'react-jsx' }).jsc.parser.tsx, true)
+		const config = convertTsConfig({ target: 'es2022', module: 'es2022' })
+		strictEqual(config.jsc.parser.tsx, undefined)
+		// valid TypeScript, but not valid TSX
+		const source =
+			'export const value = <number>JSON.parse("1"); export const id = <T>(value: T) => value;'
+		for (const filename of ['input.ts', 'input.mts', 'input.cts', undefined]) {
+			const { code } = transformSync(source, {
+				...config,
+				...swcOptions,
+				filename,
+			})
+			strictEqual(
+				runInNewContext(`${code.replace(/export /g, '')}; id(value)`),
+				1,
+				String(filename),
+			)
+		}
 	})
 
 	it('writes overrides as given, even when they equal the swc defaults', () => {
