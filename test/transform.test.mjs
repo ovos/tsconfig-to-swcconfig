@@ -61,7 +61,8 @@ it('preserves Node dynamic imports and implicit CommonJS interop', (t) => {
 			'import dep from "./dep.cjs"; import assigned = require("./dep.cjs"); export const load = async () => ({ value: (await import("./dep.mjs")).value + dep.offset + assigned.offset });',
 			convertTsConfig(
 				{ module, target: 'es2022', rewriteRelativeImportExtensions: true },
-				swcOptions,
+				// the fork never writes ignoreDynamic, keeping import() is an explicit opt-in
+				{ ...swcOptions, module: { ignoreDynamic: true } },
 				cwd,
 			),
 		)

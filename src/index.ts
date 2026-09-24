@@ -157,8 +157,9 @@ export function convertTsConfig(
 		moduleConfig.strictMode =
 			alwaysStrict || !noImplicitUseStrict ? undefined : false
 		moduleConfig.noInterop = esModuleInterop ? undefined : true
-		moduleConfig.ignoreDynamic =
-			nodeModules.includes(module?.toLowerCase() ?? '') || undefined
+		// `ignoreDynamic` is never written, even though tsc keeps `import()` in CommonJS output of node modules:
+		// swc would then also skip the `jsc.paths` and `baseUrl` rewriting in them, which breaks aliased imports at runtime.
+		// Without it, swc turns `import()` into a `require()` of the rewritten path.
 	}
 
 	const jsc = {

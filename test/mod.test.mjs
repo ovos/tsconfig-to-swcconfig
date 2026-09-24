@@ -110,12 +110,15 @@ describe('cleaner convert', { concurrency: true }, () => {
 		}
 	})
 
-	it('keeps dynamic imports of node module modes', () => {
-		const config = convertTsConfig({ module: 'node16', target: 'es2022' })
-		deepStrictEqual(JSON.parse(json(config.module)), {
-			type: 'commonjs',
-			ignoreDynamic: true,
-		})
+	it('never writes ignoreDynamic for CommonJS output of node modules', () => {
+		for (const module of ['node16', 'node18', 'node20', 'nodenext']) {
+			const config = convertTsConfig({ module, target: 'es2022' })
+			deepStrictEqual(
+				JSON.parse(json(config.module)),
+				{ type: 'commonjs' },
+				module,
+			)
+		}
 	})
 
 	it('writes useDefineForClassFields only to opt out of defined class fields', () => {
@@ -337,6 +340,46 @@ describe('portable .swcrc', { concurrency: true }, () => {
 			sourceMaps: false,
 		})
 		ok(code.includes('require("./value")'), code)
+	})
+
+	it('turns aliased import() of node16 CommonJS output into require() of the rewritten path', (t) => {
+		const root = project(t, {
+			'app/package.json': {},
+			'app/tsconfig.json': {
+				compilerOptions: {
+					module: 'node16',
+					target: 'es2022',
+					baseUrl: './src',
+					paths: { '~lib/*': ['../lib/*'] },
+				},
+			},
+			'app/src/entry.ts':
+				'export const load = async () => [(await import("modules/search/Search")).Search, (await import("~lib/data.json")).default.value];',
+			'app/src/modules/search/Search.ts': 'export const Search = 42;',
+			'app/lib/data.json': '{ "value": 43 }',
+		})
+		const app = join(root, 'app')
+		generate(app, [])
+		for (const file of ['entry', 'modules/search/Search']) {
+			const { code } = transformFileSync(join(app, 'src', `${file}.ts`), {
+				configFile: join(app, '.swcrc'),
+				sourceMaps: false,
+			})
+			mkdirSync(dirname(join(app, 'out', file)), { recursive: true })
+			writeFileSync(join(app, 'out', `${file}.js`), code)
+		}
+		const entry = readFileSync(join(app, 'out/entry.js'), 'utf8')
+		ok(entry.includes('require("./modules/search/Search")'), entry)
+		ok(entry.includes('require("../lib/data.json")'), entry)
+		const stdout = execFileSync(
+			process.execPath,
+			[
+				'-e',
+				'require("./out/entry.js").load().then((values) => console.log(JSON.stringify(values)))',
+			],
+			{ cwd: app, encoding: 'utf8' },
+		)
+		strictEqual(stdout.trim(), '[42,43]')
 	})
 
 	it('writes a baseUrl given with --set as it is', (t) => {
