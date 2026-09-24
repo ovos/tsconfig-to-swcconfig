@@ -80,6 +80,7 @@ export function convertTsConfig(
 		rewriteRelativeImportExtensions,
 	} = tsOptions
 
+	// Options equal to the swc defaults are left out (set to undefined), so the generated config only lists what matters.
 	const jsx = _jsx?.toLowerCase()
 	const jsxRuntime: swcType.ReactConfig['runtime'] =
 		jsx === 'preserve' || jsx === 'react-native'
@@ -89,6 +90,21 @@ export function convertTsConfig(
 				: undefined
 	const jsxDevelopment: swcType.ReactConfig['development'] =
 		jsx === 'react-jsxdev' ? true : undefined
+	// TypeScript compiles JSX only when `jsx` is set, so the react options are written only then.
+	const react: swcType.ReactConfig | undefined = jsx
+		? {
+				// TypeScript accepts namespaced JSX tags, swc throws on them by default
+				throwIfNamespace: false,
+				development: jsxDevelopment,
+				pragma: jsxFactory !== 'React.createElement' ? jsxFactory : undefined,
+				pragmaFrag:
+					jsxFragmentFactory !== 'React.Fragment'
+						? jsxFragmentFactory
+						: undefined,
+				importSource: jsxImportSource !== 'react' ? jsxImportSource : undefined,
+				runtime: jsxRuntime,
+			}
+		: undefined
 	const type = moduleType(module, cwd, swcOptions.filename)
 	const moduleConfig: swcType.ModuleConfig | undefined = type
 		? { type }
@@ -99,15 +115,15 @@ export function convertTsConfig(
 			moduleConfig.type === 'amd' ||
 			moduleConfig.type === 'umd')
 	) {
-		moduleConfig.strictMode = alwaysStrict || !noImplicitUseStrict
-		moduleConfig.noInterop = !esModuleInterop
-		moduleConfig.ignoreDynamic = nodeModules.includes(
-			module?.toLowerCase() ?? '',
-		)
+		moduleConfig.strictMode =
+			alwaysStrict || !noImplicitUseStrict ? undefined : false
+		moduleConfig.noInterop = esModuleInterop ? undefined : true
+		moduleConfig.ignoreDynamic =
+			nodeModules.includes(module?.toLowerCase() ?? '') || undefined
 	}
 
 	const jsc = {
-		externalHelpers: importHelpers,
+		externalHelpers: importHelpers || undefined,
 		target: targetType(target),
 		experimental: {
 			// SWC rejects supplying both this option and its keepImportAssertions alias.
@@ -123,38 +139,35 @@ export function convertTsConfig(
 			dynamicImport: true,
 		},
 		transform: {
-			legacyDecorator: experimentalDecorators,
-			decoratorVersion: experimentalDecorators ? '2021-12' : '2023-11',
-			decoratorMetadata: emitDecoratorMetadata,
-			useDefineForClassFields,
-			verbatimModuleSyntax,
-			react: {
-				throwIfNamespace: false,
-				development: jsxDevelopment,
-				useBuiltins: false,
-				pragma: jsxFactory,
-				pragmaFrag: jsxFragmentFactory,
-				importSource: jsxImportSource,
-				runtime: jsxRuntime,
-			},
+			legacyDecorator: experimentalDecorators || undefined,
+			// '2021-12' is the swc default
+			decoratorVersion: experimentalDecorators ? undefined : '2023-11',
+			decoratorMetadata: emitDecoratorMetadata || undefined,
+			// swc defines class fields for every target, so only the opt-out has to be written
+			useDefineForClassFields: useDefineForClassFields ? undefined : false,
+			verbatimModuleSyntax: verbatimModuleSyntax || undefined,
+			react,
 		},
-		keepClassNames: !['es3', 'es5', 'es6', 'es2015'].includes(
-			target.toLowerCase(),
-		),
+		keepClassNames:
+			!['es3', 'es5', 'es6', 'es2015'].includes(target.toLowerCase()) ||
+			undefined,
 		paths,
 		baseUrl: baseUrl || paths ? path.resolve(cwd, baseUrl ?? '.') : undefined,
-		rewriteRelativeImportExtensions,
+		rewriteRelativeImportExtensions:
+			rewriteRelativeImportExtensions || undefined,
 	} satisfies swcType.JscConfig & {
 		// Supported by SWC 1.16.2, not yet declared in @swc/types.
 		rewriteRelativeImportExtensions?: boolean
 	}
 
 	const transformedOptions = deepmerge(
+		// keys in the order of the 2.8.0-mod.0 output, so regenerated .swcrc files keep their layout
 		{
-			sourceMaps: inlineSourceMap ? 'inline' : sourceMap,
-			module: moduleConfig,
+			$schema: 'https://swc.rs/schema.json',
 			jsc,
-		} satisfies swcType.Options,
+			module: moduleConfig,
+			sourceMaps: (inlineSourceMap ? 'inline' : sourceMap) || undefined,
+		} satisfies swcType.Options & { $schema: string },
 		swcOptions,
 	)
 
